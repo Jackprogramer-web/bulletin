@@ -35,6 +35,7 @@ app.get("/", (req, res) => {
 	res.send("hello ");
 });
 
+// 글 목록 확인
 app.get("/board", (req, res) => {
 	connection.query("select * from 게시글", function (error, results, fields) {
 		if (error) {
@@ -47,6 +48,7 @@ app.get("/board", (req, res) => {
 	});
 });
 
+// 해당글 불러오기
 app.get("/board/:id", (req, res) => {
 	connection.query("select * from 게시글", function (error, results, fields) {
 		if (error) {
@@ -55,12 +57,19 @@ app.get("/board/:id", (req, res) => {
 			return;
 		}
 
-		let id = req.params.id;
-		let idx = id - 1;
-		res.send(results[idx]);
+		console.log(results);
+		let id = parseInt(req.params.id);
+		const targetBoard = results.find((board) => board["글번호"] === id);
+
+		if (targetBoard) {
+			res.send(targetBoard); // 찾은 객체를 전체로 반환하거나 원하는 작업 수행
+		} else {
+			console.log("글번호가 1인 객체를 찾을 수 없습니다.");
+		}
 	});
 });
 
+// 글쓰기
 app.post("/api/posts", (req, res) => {
 	const { title, text } = req.body;
 
@@ -74,6 +83,24 @@ app.post("/api/posts", (req, res) => {
 				return;
 			}
 			res.json(results);
+		}
+	);
+});
+
+// 글삭제하기
+app.delete("/api/delete/:id", (req, res) => {
+	const id = req.params.id;
+	connection.query(
+		"DELETE FROM 게시글 WHERE 글번호 = (?)",
+		[id],
+		function (error, results, fields) {
+			if (error) {
+				console.error("에러가 발생했음", error);
+				res.status(500).json({ error: "An error occurred" });
+				return;
+			}
+			res.json(results);
+			console.log("삭제 완료");
 		}
 	);
 });
