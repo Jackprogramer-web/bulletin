@@ -83,6 +83,7 @@ app.post("/api/posts", (req, res) => {
 				return;
 			}
 			res.json(results);
+			res.send("hello");
 		}
 	);
 });
