@@ -156,4 +156,35 @@ app.delete("/api/delete/:id", (req, res) => {
 	);
 });
 
+//글 검색하기 req.query사용
+// text를 query받는다 -> sql문에서 테이블에 해당 내용이 포함되는 튜플을 찾는다
+// 해당 튜플을 가지고 있는 글을 홈화면에 비춘다.
+
+app.get("/search", (req, res) => {
+	const { searchText } = req.query;
+	console.log(req.query);
+	console.log(req.query.searchText);
+
+	connection.query(
+		"select * from 게시글 as b LEFT join 댓글 AS c ON b.글번호 = c.게시글번호 where b.글내용 LIKE CONCAT('%', ?, '%') or b.글제목 like CONCAT('%', ?, '%') OR c.내용 like CONCAT('%', ?, '%')",
+		[searchText, searchText, searchText],
+		function (error, results, fields) {
+			if (error) {
+				console.error("Error executing query:", error);
+				res.status(500).json({ error: "An error occurred" });
+				return;
+			}
+
+			results.forEach((result) => {
+				if (result.작성자 === null) {
+					result.작성자 = "이름없음";
+				}
+				console.log(result.작성자);
+			});
+
+			res.send(results);
+		}
+	);
+});
+
 app.listen(port);
