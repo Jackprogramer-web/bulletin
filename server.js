@@ -36,17 +36,25 @@ app.get("/", (req, res) => {
 });
 
 // GET
-// 전체 글 데이터
+// 전체 글 데이터 -> 게시글 페이징 추가
 app.get("/board", (req, res) => {
-	connection.query("select * from 게시글", function (error, results, fields) {
-		if (error) {
-			console.error("Error executing query:", error);
-			res.status(500).json({ error: "An error occurred" });
-			return;
-		}
+	const page = req.query.page;
 
-		res.send(results);
-	});
+	let query = "SELECT * FROM 게시글";
+	const limit = parseInt(page);
+
+	connection.query(
+		"SELECT * FROM 게시글 LIMIT ${limit}",
+		function (error, results, fields) {
+			if (error) {
+				console.error("Error executing query:", error);
+				res.status(500).json({ error: "An error occurred" });
+				return;
+			}
+
+			res.send(results);
+		}
+	);
 });
 // 전체 댓글 데이터
 app.get("/comment", (req, res) => {
@@ -101,7 +109,7 @@ app.get("/comment/:id", (req, res) => {
 });
 
 // POST
-// 게시글
+// 게시글 작성하기
 app.post("/api/posts/board", (req, res) => {
 	const { title, text, writer } = req.body;
 
@@ -119,7 +127,7 @@ app.post("/api/posts/board", (req, res) => {
 	);
 });
 
-// 댓글
+// 댓글 작성하기
 app.post("/api/posts/comment", (req, res) => {
 	const { idx, user, comment } = req.body;
 
@@ -137,7 +145,7 @@ app.post("/api/posts/comment", (req, res) => {
 	);
 });
 
-// 글삭제하기
+// 게시글 삭제하기
 app.delete("/api/delete/:id", (req, res) => {
 	const id = req.params.id;
 
