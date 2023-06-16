@@ -36,16 +36,38 @@ app.get("/", (req, res) => {
 });
 
 // GET
-// 전체 글 데이터 -> 게시글 페이징 추가
-app.get("/board", (req, res) => {
-	const page = req.query.page;
-
-	let query = "SELECT * FROM 게시글";
-	const limit = parseInt(page);
-
+// 먼저 전체 페이지 갯수를 받아오자.
+app.get("/totalPage", (req, res) => {
+	const pageSize = req.query.pageSize;
 	connection.query(
-		"SELECT * FROM 게시글 LIMIT ${limit}",
-		function (error, results, fields) {
+		"SELECT COUNT(*) AS total FROM 게시글",
+		(error, results) => {
+			if (error) {
+				console.error("Error executing query:", error);
+				res.status(500).json({ error: "An error occurred" });
+				return;
+			}
+
+			const totalData = results[0].total;
+			const totalPage = Math.ceil(totalData / pageSize);
+
+			res.json(totalPage);
+		}
+	);
+});
+
+// 페이지 n개씩 보는거, 몇번째 page인지에 따라 제공되는 데이터가 다르다.
+app.get("/board", (req, res) => {
+	const pageSize = parseInt(req.query.pageSize);
+	const pageNum = parseInt(req.query.pageNum);
+
+	const offset = (pageNum - 1) * pageSize;
+
+	// 게시글 조회
+	connection.query(
+		"SELECT * FROM 게시글 LIMIT ?, ?",
+		[offset, pageSize],
+		(error, results, fields) => {
 			if (error) {
 				console.error("Error executing query:", error);
 				res.status(500).json({ error: "An error occurred" });
@@ -56,6 +78,7 @@ app.get("/board", (req, res) => {
 		}
 	);
 });
+
 // 전체 댓글 데이터
 app.get("/comment", (req, res) => {
 	connection.query("select * from 댓글", function (error, results, fields) {
