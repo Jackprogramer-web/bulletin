@@ -31,8 +31,59 @@ connection.connect((err) => {
 	}
 });
 
-app.get("/", (req, res) => {
-	res.send("hello ");
+/**테이블 만들기  */
+app.get("/table", (req, res) => {
+	const createBoardQuery = `
+    CREATE TABLE 게시글 (
+      글번호 INT PRIMARY KEY AUTO_INCREMENT NOT NULL,
+      글제목 VARCHAR(50),
+      글내용 VARCHAR(2000),
+      작성자 VARCHAR(11),
+      작성일 DATETIME
+    )
+  `;
+
+	const createCommentQuery = `
+  CREATE TABLE 댓글 (
+    댓글번호 INT AUTO_INCREMENT NOT NULL,
+    게시글번호 INT,
+    댓글작성자 VARCHAR(12),
+    내용 VARCHAR(50),
+    작성일 DATETIME,
+    FOREIGN KEY (게시글번호) REFERENCES 게시글(글번호) ON DELETE CASCADE,
+    CONSTRAINT pk_댓글 PRIMARY KEY (댓글번호, 게시글번호)
+  )
+`;
+
+	connection.query(
+		createBoardQuery,
+		(boardError, boardResults, boardFields) => {
+			if (boardError) {
+				console.error("Error creating table:", boardError);
+				res.status(500).send("Error creating table");
+			} else {
+				console.log("테이블이 성공적으로 만들어졌습니다.");
+
+				connection.query(
+					createCommentQuery,
+					(commentError, commentResults, commentFields) => {
+						if (commentError) {
+							console.error(
+								"Error creating 댓글 table:",
+								commentError
+							);
+							res.status(500).send("Error creating 댓글 table");
+						} else {
+							console.log(
+								"댓글 태이블이 성공적으로 만들어졌습니다."
+							);
+							res.send("모든테이블이 성공적으로 만들어졌습니다.");
+						}
+					}
+				);
+			}
+		}
+	);
 });
 
 // GET
@@ -150,26 +201,8 @@ app.post("/api/posts/board", (req, res) => {
 	);
 });
 
-// 댓글 작성하기
-app.post("/api/posts/comment", (req, res) => {
-	const { idx, user, comment } = req.body;
-
-	connection.query(
-		"INSERT INTO 댓글 (게시글번호, 작성자, 내용, 작성일) VALUES (?, ?, ?, NOW())",
-		[idx, user, comment],
-		function (error, results, fields) {
-			if (error) {
-				console.error("에러가 발생했음", error);
-				res.status(500).json({ error: "An error occurred" });
-				return;
-			}
-			res.json(results);
-		}
-	);
-});
-
 // 게시글 삭제하기
-app.delete("/api/delete/:id", (req, res) => {
+app.delete("/board/delete/:id", (req, res) => {
 	const id = req.params.id;
 
 	connection.query(
@@ -192,28 +225,64 @@ app.delete("/api/delete/:id", (req, res) => {
 // 해당 튜플을 가지고 있는 글을 홈화면에 비춘다.
 
 app.get("/search", (req, res) => {
-	const { searchText } = req.query;
-	console.log(req.query);
-	console.log(req.query.searchText);
+	const searchField = req.query.searchField;
+	const searchText = req.query.searchText;
+
+	let query = "";
+	if (searchField === "제목+내용") {
+		query = `SELECT * FROM 게시글 WHERE 글제목  LIKE '%${searchText}%' OR 글내용 LIKE '%${searchText}%'`;
+	} else if (searchField === "작성자") {
+		query = `SELECT * FROM 게시글 WHERE 작성자 LIKE '%${searchText}%'`;
+	} else {
+		query = `SELECT *
+		FROM 게시글
+		INNER JOIN 댓글 ON 게시글.글번호 = 댓글.게시글번호
+		WHERE 댓글.내용 LIKE '%${searchText}%'`;
+	}
+
+	connection.query(query, (error, results) => {
+		if (error) {
+			console.log("Error executing search query:", error);
+			res.status(500).send("Error searching for posts or comments");
+		} else {
+			res.send(results);
+		}
+	});
+});
+
+// 댓글 작성하기
+app.post("/api/posts/comment", (req, res) => {
+	const { idx, user, comment } = req.body;
 
 	connection.query(
-		"select * from 게시글 as b LEFT join 댓글 AS c ON b.글번호 = c.게시글번호 where b.글내용 LIKE CONCAT('%', ?, '%') or b.글제목 like CONCAT('%', ?, '%') OR c.내용 like CONCAT('%', ?, '%')",
-		[searchText, searchText, searchText],
+		"INSERT INTO 댓글 (게시글번호, 댓글작성자, 내용, 작성일) VALUES (?, ?, ?, NOW())",
+		[idx, user, comment],
 		function (error, results, fields) {
 			if (error) {
-				console.error("Error executing query:", error);
+				console.error("에러가 발생했음", error);
 				res.status(500).json({ error: "An error occurred" });
 				return;
 			}
+			res.json(results);
+		}
+	);
+});
 
-			results.forEach((result) => {
-				if (result.작성자 === null) {
-					result.작성자 = "이름없음";
-				}
-				console.log(result.작성자);
-			});
+// 댓글 삭제하기
+app.delete("/comment/delete/:id", (req, res) => {
+	const id = req.params.id;
 
-			res.send(results);
+	connection.query(
+		"DELETE FROM 댓글 WHERE 댓글번호 = ?",
+		[id],
+		function (error, results, fields) {
+			if (error) {
+				console.error("에러가 발생했음", error);
+				res.status(500).json({ error: "An error occurred" });
+				return;
+			}
+			res.json(results);
+			console.log("삭제 완료");
 		}
 	);
 });
